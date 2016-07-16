@@ -5,12 +5,12 @@ import java.util.Properties;
 import javax.sql.DataSource;
  
 import org.hibernate.SessionFactory;
-import org.o7planning.springmvcshoppingcart.dao.AccountDAO;
-import org.o7planning.springmvcshoppingcart.dao.OrderDAO;
-import org.o7planning.springmvcshoppingcart.dao.ProductDAO;
-import org.o7planning.springmvcshoppingcart.dao.impl.AccountDAOImpl;
-import org.o7planning.springmvcshoppingcart.dao.impl.OrderDAOImpl;
-import org.o7planning.springmvcshoppingcart.dao.impl.ProductDAOImpl;
+import springmvcshoppingcart.dao.AccountDAO;
+import springmvcshoppingcart.dao.OrderDAO;
+import springmvcshoppingcart.dao.ProductDAO;
+import springmvcshoppingcart.dao.impl.AccountDAOImpl;
+import springmvcshoppingcart.dao.impl.OrderDAOImpl;
+import springmvcshoppingcart.dao.impl.ProductDAOImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;

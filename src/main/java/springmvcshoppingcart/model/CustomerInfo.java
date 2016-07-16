@@ -1,6 +1,5 @@
 package springmvcshoppingcart.model;
 
-package org.o7planning.springmvcshoppingcart.model;
 
 public class CustomerInfo {
  

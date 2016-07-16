@@ -1,137 +1,98 @@
 package springmvcshoppingcart.dao.impl;
-
 import java.util.Date;
-import java.util.List;
-import java.util.UUID;
  
 import org.hibernate.Criteria;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.criterion.Restrictions;
-import springmvcshoppingcart.dao.OrderDAO;
 import springmvcshoppingcart.dao.ProductDAO;
-import springmvcshoppingcart.entity.Order;
-import springmvcshoppingcart.entity.OrderDetail;
 import springmvcshoppingcart.entity.Product;
-import springmvcshoppingcart.model.CartInfo;
-import springmvcshoppingcart.model.CartLineInfo;
-import springmvcshoppingcart.model.CustomerInfo;
-import springmvcshoppingcart.model.OrderDetailInfo;
-import springmvcshoppingcart.model.OrderInfo;
 import springmvcshoppingcart.model.PaginationResult;
+import springmvcshoppingcart.model.ProductInfo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
  
-//Transactional for Hibernate
+// Transactional for Hibernate
 @Transactional
-public class OrderDAOImpl implements OrderDAO {
+public class ProductDAOImpl implements ProductDAO {
  
     @Autowired
     private SessionFactory sessionFactory;
  
-    @Autowired
-    private ProductDAO productDAO;
- 
-    private int getMaxOrderNum() {
-        String sql = "Select max(o.orderNum) from " + Order.class.getName() + " o ";
+    @Override
+    public Product findProduct(String code) {
         Session session = sessionFactory.getCurrentSession();
-        Query query = session.createQuery(sql);
-        Integer value = (Integer) query.uniqueResult();
-        if (value == null) {
-            return 0;
-        }
-        return value;
+        Criteria crit = session.createCriteria(Product.class);
+        crit.add(Restrictions.eq("code", code));
+        return (Product) crit.uniqueResult();
     }
  
     @Override
-    public void saveOrder(CartInfo cartInfo) {
-        Session session = sessionFactory.getCurrentSession();
- 
-        int orderNum = this.getMaxOrderNum() + 1;
-        Order order = new Order();
- 
-        order.setId(UUID.randomUUID().toString());
-        order.setOrderNum(orderNum);
-        order.setOrderDate(new Date());
-        order.setAmount(cartInfo.getAmountTotal());
- 
-        CustomerInfo customerInfo = cartInfo.getCustomerInfo();
-        order.setCustomerName(customerInfo.getName());
-        order.setCustomerEmail(customerInfo.getEmail());
-        order.setCustomerPhone(customerInfo.getPhone());
-        order.setCustomerAddress(customerInfo.getAddress());
- 
-        session.persist(order);
- 
-        List<CartLineInfo> lines = cartInfo.getCartLines();
- 
-        for (CartLineInfo line : lines) {
-            OrderDetail detail = new OrderDetail();
-            detail.setId(UUID.randomUUID().toString());
-            detail.setOrder(order);
-            detail.setAmount(line.getAmount());
-            detail.setPrice(line.getProductInfo().getPrice());
-            detail.setQuanity(line.getQuantity());
- 
-            String code = line.getProductInfo().getCode();
-            Product product = this.productDAO.findProduct(code);
-            detail.setProduct(product);
- 
-            session.persist(detail);
-        }
- 
-        // Set OrderNum for report.
-      
-        cartInfo.setOrderNum(orderNum);
-    }
- 
-    // @page = 1, 2, ...
-    @Override
-    public PaginationResult<OrderInfo> listOrderInfo(int page, int maxResult, int maxNavigationPage) {
-        String sql = "Select new " + OrderInfo.class.getName()//
-                + "(ord.id, ord.orderDate, ord.orderNum, ord.amount, "
-                + " ord.customerName, ord.customerAddress, ord.customerEmail, ord.customerPhone) " + " from "
-                + Order.class.getName() + " ord "//
-                + " order by ord.orderNum desc";
-        Session session = this.sessionFactory.getCurrentSession();
- 
-        Query query = session.createQuery(sql);
- 
-        return new PaginationResult<OrderInfo>(query, page, maxResult, maxNavigationPage);
-    }
- 
-    public Order findOrder(String orderId) {
-        Session session = sessionFactory.getCurrentSession();
-        Criteria crit = session.createCriteria(Order.class);
-        crit.add(Restrictions.eq("id", orderId));
-        return (Order) crit.uniqueResult();
-    }
- 
-    @Override
-    public OrderInfo getOrderInfo(String orderId) {
-        Order order = this.findOrder(orderId);
-        if (order == null) {
+    public ProductInfo findProductInfo(String code) {
+        Product product = this.findProduct(code);
+        if (product == null) {
             return null;
         }
-        return new OrderInfo(order.getId(), order.getOrderDate(), //
-                order.getOrderNum(), order.getAmount(), order.getCustomerName(), //
-                order.getCustomerAddress(), order.getCustomerEmail(), order.getCustomerPhone());
+        return new ProductInfo(product.getCode(), product.getName(), product.getPrice());
     }
  
     @Override
-    public List<OrderDetailInfo> listOrderDetailInfos(String orderId) {
-        String sql = "Select new " + OrderDetailInfo.class.getName() //
-                + "(d.id, d.product.code, d.product.name , d.quanity,d.price,d.amount) "//
-                + " from " + OrderDetail.class.getName() + " d "//
-                + " where d.order.id = :orderId ";
+    public void save(ProductInfo productInfo) {
+        String code = productInfo.getCode();
  
-        Session session = this.sessionFactory.getCurrentSession();
+        Product product = null;
  
-        Query query = session.createQuery(sql);
-        query.setParameter("orderId", orderId);
+        boolean isNew = false;
+        if (code != null) {
+            product = this.findProduct(code);
+        }
+        if (product == null) {
+            isNew = true;
+            product = new Product();
+            product.setCreateDate(new Date());
+        }
+        product.setCode(code);
+        product.setName(productInfo.getName());
+        product.setPrice(productInfo.getPrice());
  
-        return query.list();
+        if (productInfo.getFileData() != null) {
+            byte[] image = productInfo.getFileData().getBytes();
+            if (image != null && image.length > 0) {
+                product.setImage(image);
+            }
+        }
+        if (isNew) {
+            this.sessionFactory.getCurrentSession().persist(product);
+        }
+        // If error in DB, Exceptions will be thrown out immediately
+      
+        this.sessionFactory.getCurrentSession().flush();
     }
  
+    @Override
+    public PaginationResult<ProductInfo> queryProducts(int page, int maxResult, int maxNavigationPage,
+            String likeName) {
+        String sql = "Select new " + ProductInfo.class.getName() //
+                + "(p.code, p.name, p.price) " + " from "//
+                + Product.class.getName() + " p ";
+        if (likeName != null && likeName.length() > 0) {
+            sql += " Where lower(p.name) like :likeName ";
+        }
+        sql += " order by p.createDate desc ";
+        //
+        Session session = sessionFactory.getCurrentSession();
+ 
+        Query query = session.createQuery(sql);
+        if (likeName != null && likeName.length() > 0) {
+            query.setParameter("likeName", "%" + likeName.toLowerCase() + "%");
+        }
+        return new PaginationResult<ProductInfo>(query, page, maxResult, maxNavigationPage);
+    }
+ 
+    @Override
+    public PaginationResult<ProductInfo> queryProducts(int page, int maxResult, int maxNavigationPage) {
+        return queryProducts(page, maxResult, maxNavigationPage, null);
+    }
+    
 }
